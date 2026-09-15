@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartPark Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">🚗 Smart<span>Park</span></div>
+    <a class="nav-item" href="/app"><span class="icon">🏠</span> User App</a>
+    <div class="nav-item active"><span class="icon">🛠️</span> Admin</div>
+    <div class="sidebar-footer">
+      Prototype build · SQLite + Flask<br>
+      <a href="/" style="color:var(--accent)">← Back to PBL presentation</a>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title">Admin Dashboard</div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost" onclick="refreshAll()">↻ Refresh</button>
+        <button class="btn btn-danger" onclick="resetDemo()">Reset Demo Data</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="kpi-grid">
+        <div class="kpi-card accent"><div class="label">Total Slots</div><div class="value" id="a-total">–</div></div>
+        <div class="kpi-card green"><div class="label">Available</div><div class="value" id="a-available">–</div></div>
+        <div class="kpi-card red"><div class="label">Occupied</div><div class="value" id="a-occupied">–</div></div>
+        <div class="kpi-card amber"><div class="label">Reserved</div><div class="value" id="a-reserved">–</div></div>
+        <div class="kpi-card"><div class="label">Maintenance</div><div class="value" id="a-maintenance">–</div></div>
+        <div class="kpi-card accent"><div class="label">Today's Vehicles</div><div class="value" id="a-today-vehicles">–</div></div>
+        <div class="kpi-card green"><div class="label">Today's Revenue</div><div class="value" id="a-today-revenue">–</div></div>
+      </div>
+
+      <div class="section-title">Analytics</div>
+      <div class="card charts-grid">
+        <div><canvas id="a-chart-zone" height="220"></canvas></div>
+        <div><canvas id="a-chart-hourly" height="220"></canvas></div>
+      </div>
+
+      <div class="section-title">Parking Zones & Slot Management</div>
+      <div class="card">
+        <div id="a-zones"></div>
+      </div>
+
+      <div class="section-title">
+        Slots — <span id="a-slot-zone-name">select a zone above</span>
+        <button class="btn btn-primary" style="font-size:12px;padding:8px 14px;" onclick="openAddSlot()" id="a-add-slot-btn" disabled>+ Add Slot</button>
+      </div>
+      <div class="card">
+        <div class="slot-map" id="a-slot-map" style="grid-template-columns:repeat(8,1fr);"></div>
+        <div class="legend">
+          <span><i style="background:var(--green)"></i>Available (click to set Maintenance)</span>
+          <span><i style="background:var(--red)"></i>Occupied</span>
+          <span><i style="background:var(--amber)"></i>Reserved</span>
+          <span><i style="background:var(--grey)"></i>Maintenance (click to set Available)</span>
+        </div>
+      </div>
+
+      <div class="section-title">Prototype Sensor Simulation</div>
+      <div class="hint-banner">
+        This section simulates IoT sensor input for demonstration purposes only — no physical hardware is
+        connected. Future deployment can replace the simulator with real sensor input over the same
+        <code>/api/sensor/*</code> endpoints.
+      </div>
+      <div class="card">
+        <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+          <div style="flex:1;min-width:180px;">
+            <label>Slot number</label>
+            <input id="sensor-slot-number" placeholder="e.g. A03">
+          </div>
+          <button class="btn btn-success" onclick="simulateSensor('detect')">VEHICLE DETECTED</button>
+          <button class="btn btn-ghost" onclick="simulateSensor('exit')">VEHICLE EXIT</button>
+        </div>
+      </div>
+
+      <div class="section-title">Recent Activity</div>
+      <div class="card" style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Time</th><th>Slot</th><th>Zone</th><th>Event</th><th>Source</th><th>Description</th></tr></thead>
+          <tbody id="a-activity"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add slot modal -->
+<div class="modal-backdrop" id="add-slot-modal">
+  <div class="modal">
+    <span class="modal-close" onclick="closeModal('add-slot-modal')">&times;</span>
+    <h2>Add Parking Slot</h2>
+    <div class="sub" id="add-slot-zone-label"></div>
+    <label>Slot Number</label>
+    <input id="new-slot-number" placeholder="e.g. A21">
+    <label>Slot Type</label>
+    <select id="new-slot-type"><option value="CAR">Car</option><option value="BIKE">Bike</option><option value="EV">EV</option></select>
+    <label>Floor</label>
+    <input id="new-slot-floor" type="number" value="1" min="1">
+    <div id="add-slot-error" style="color:var(--red);font-size:12px;margin-bottom:12px;display:none;"></div>
+    <button class="btn btn-primary btn-block" onclick="submitAddSlot()">ADD SLOT</button>
+  </div>
+</div>
+
+<!-- Confirm override modal -->
+<div class="modal-backdrop" id="confirm-modal">
+  <div class="modal">
+    <span class="modal-close" onclick="closeModal('confirm-modal')">&times;</span>
+    <h2>Confirm Action</h2>
+    <div class="sub" id="confirm-modal-text"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost btn-block" onclick="closeModal('confirm-modal')">Cancel</button>
+      <button class="btn btn-danger btn-block" id="confirm-modal-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+</body>
+</html>

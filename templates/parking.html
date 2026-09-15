@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartPark | Smart Parking Management System</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <aside class="sidebar">
+    <div class="brand">🚗 Smart<span>Park</span></div>
+    <div class="nav-item active" data-view="dashboard"><span class="icon">🏠</span> Dashboard</div>
+    <div class="nav-item" data-view="find"><span class="icon">🔍</span> Find Parking</div>
+    <div class="nav-item" data-view="myparking"><span class="icon">🅿️</span> My Parking</div>
+    <div class="nav-item" data-view="history"><span class="icon">🕒</span> History</div>
+    <div class="nav-item" data-view="rewards"><span class="icon">🏆</span> Rewards</div>
+    <a class="nav-item" href="/admin"><span class="icon">🛠️</span> Admin</a>
+    <div class="sidebar-footer">
+      Prototype build · SQLite + Flask<br>
+      <a href="/" style="color:var(--accent)">← Back to PBL presentation</a>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="page-title">Dashboard</div>
+      <div class="topbar-right">
+        <div class="demo-user-pill"><span class="avatar">DU</span> Demo User</div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ================= DASHBOARD ================= -->
+      <div class="view active" id="view-dashboard">
+        <div class="kpi-grid">
+          <div class="kpi-card accent"><div class="label">Total Slots</div><div class="value" id="kpi-total">–</div></div>
+          <div class="kpi-card green"><div class="label">Available</div><div class="value" id="kpi-available">–</div></div>
+          <div class="kpi-card red"><div class="label">Occupied</div><div class="value" id="kpi-occupied">–</div></div>
+          <div class="kpi-card amber"><div class="label">Reserved</div><div class="value" id="kpi-reserved">–</div></div>
+        </div>
+
+        <div class="section-title">Current Parking</div>
+        <div class="card" id="dashboard-current-parking">
+          <div class="empty-state"><div class="icon">🅿️</div>Loading…</div>
+        </div>
+
+        <div class="section-title">Live Occupancy by Zone</div>
+        <div class="card">
+          <div id="dashboard-zone-bars"></div>
+        </div>
+
+        <div class="section-title">Occupancy Overview</div>
+        <div class="card charts-grid">
+          <div><canvas id="chart-zone-occupancy" height="220"></canvas></div>
+          <div><canvas id="chart-hourly-demand" height="220"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ================= FIND PARKING ================= -->
+      <div class="view" id="view-find">
+        <div class="section-title">Parking Zones</div>
+        <div class="zone-grid" id="zone-grid"></div>
+
+        <div class="section-title" id="slot-map-title" style="display:none;">Slot Map</div>
+        <div class="card" id="slot-map-card" style="display:none;">
+          <div class="slot-map" id="slot-map"></div>
+          <div class="legend">
+            <span><i style="background:var(--green)"></i>Available</span>
+            <span><i style="background:var(--red)"></i>Occupied</span>
+            <span><i style="background:var(--amber)"></i>Reserved</span>
+            <span><i style="background:var(--grey)"></i>Maintenance</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= MY PARKING ================= -->
+      <div class="view" id="view-myparking">
+        <div id="myparking-container">
+          <div class="empty-state"><div class="icon">🅿️</div>Loading…</div>
+        </div>
+      </div>
+
+      <!-- ================= HISTORY ================= -->
+      <div class="view" id="view-history">
+        <div class="section-title">Parking History</div>
+        <div class="card">
+          <div class="filters">
+            <input id="filter-vehicle" placeholder="Vehicle number">
+            <select id="filter-zone">
+              <option value="">All zones</option>
+              <option value="Zone A">Zone A</option>
+              <option value="Zone B">Zone B</option>
+              <option value="Zone C">Zone C</option>
+            </select>
+            <input id="filter-date" type="date">
+            <select id="filter-status">
+              <option value="">All statuses</option>
+              <option value="PAID">Paid</option>
+              <option value="PENDING">Pending</option>
+              <option value="FAILED">Failed</option>
+            </select>
+            <button class="btn btn-primary" onclick="loadHistory()">Filter</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr>
+                <th>Txn ID</th><th>Date</th><th>Vehicle</th><th>Zone</th><th>Slot</th>
+                <th>Entry</th><th>Exit</th><th>Duration</th><th>Amount</th><th>Status</th>
+              </tr></thead>
+              <tbody id="history-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= REWARDS ================= -->
+      <div class="view" id="view-rewards">
+        <div class="rewards-hero">
+          <div class="label" style="opacity:.8;font-size:12px;text-transform:uppercase;letter-spacing:.08em;">SmartPark Rewards</div>
+          <div class="points" id="rewards-points">0</div>
+          <div style="opacity:.85;font-size:13px;">points earned</div>
+        </div>
+        <div class="section-title">Points History</div>
+        <div class="card">
+          <table>
+            <thead><tr><th>Date</th><th>Reason</th><th>Points</th></tr></thead>
+            <tbody id="rewards-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ================= RESERVATION MODAL ================= -->
+<div class="modal-backdrop" id="reserve-modal">
+  <div class="modal">
+    <span class="modal-close" onclick="closeModal('reserve-modal')">&times;</span>
+    <h2>Reserve Parking Slot</h2>
+    <div class="sub" id="reserve-slot-label">Zone · Slot</div>
+
+    <label>Vehicle Number</label>
+    <input id="reserve-vehicle-number" placeholder="e.g. RJ14XX1234">
+
+    <label>Vehicle Type</label>
+    <select id="reserve-vehicle-type">
+      <option value="CAR">Car</option>
+      <option value="BIKE">Bike</option>
+      <option value="EV">EV</option>
+    </select>
+
+    <label>Duration</label>
+    <div class="duration-grid" id="duration-grid">
+      <div class="duration-opt" data-mins="30">30 min</div>
+      <div class="duration-opt selected" data-mins="60">1 hour</div>
+      <div class="duration-opt" data-mins="120">2 hours</div>
+      <div class="duration-opt" data-mins="180">3 hours</div>
+      <div class="duration-opt" data-mins="240">4 hours</div>
+    </div>
+
+    <div class="fee-preview">
+      <span class="muted">Estimated fee</span>
+      <span class="amount" id="reserve-fee-preview">₹0</span>
+    </div>
+    <div id="reserve-error" style="color:var(--red);font-size:12px;margin-bottom:12px;display:none;"></div>
+
+    <button class="btn btn-primary btn-block" id="confirm-reservation-btn">CONFIRM RESERVATION</button>
+  </div>
+</div>
+
+<!-- ================= RECEIPT MODAL ================= -->
+<div class="modal-backdrop" id="receipt-modal">
+  <div class="modal">
+    <span class="modal-close" onclick="closeModal('receipt-modal')">&times;</span>
+    <div class="receipt" id="receipt-content"></div>
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button class="btn btn-ghost btn-block" onclick="window.print()">🖨️ PRINT RECEIPT</button>
+      <button class="btn btn-primary btn-block" onclick="closeModal('receipt-modal')">DONE</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
